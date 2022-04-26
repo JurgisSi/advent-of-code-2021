@@ -44,30 +44,20 @@
   )
 
 (defn find-basins
-  ([input] (apply find-basins input '() #{} (create-coordinates input)))
-  ([input basins visited coordinate]
-   (let [x (get coordinate :x)
-         y (get coordinate :y)
-         xy (str x y)
-         point (fetch-point-or-max x y input)]
-     (if (or (= 9 point) (contains? visited xy))
-       basins
-       (conj basins 1)
-       )))
-  ([input basins visited coordinate & coordinates]
-   (println "coord:" coordinate)
-   (println "coordinates:" (count coordinates))
-   (let [x (get coordinate :x)
-         y (get coordinate :y)
-         xy (str x y)
-         point (fetch-point-or-max x y input)]
-     (if (or (= 9 point) (contains? visited xy))
-       (apply find-basins input basins (conj visited xy) coordinates)
-       (let [basin (find-basin input x y)]
-         (println "basin:" basin)
-         (apply find-basins input (conj basins (count basin)) (clojure.set/union visited basin) coordinates))
-       )
-     )
+  ([input] (find-basins input '() #{} (create-coordinates input)))
+  ([input basins visited coordinates]
+   (if (empty? coordinates)
+     basins
+     (let [x (get (first coordinates) :x)
+           y (get (first coordinates) :y)
+           xy (str x y)
+           point (fetch-point-or-max x y input)]
+       (if (or (= 9 point) (contains? visited xy))
+         (recur input basins (conj visited xy) (rest coordinates))
+         (let [basin (find-basin input x y)]
+           (recur input (conj basins (count basin)) (clojure.set/union visited basin) (rest coordinates)))
+         )
+       ))
    )
   )
 
