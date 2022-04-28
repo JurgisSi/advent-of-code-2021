@@ -15,28 +15,32 @@
 (defn remove-idx [i items]
   (keep-indexed #(when-not (= i %1) %2) items))
 
+(defn is-brace-pair? [first-brace second-brace]
+  (and (= first-brace :open) (= second-brace :close))
+  )
+
+(defn brace-match? [one two]
+  (= (get pairs one) two))
+
 (defn resolve-points
-  ([row] (apply resolve-points row row))
-  ([full one two & rest]
-   (let [first-brace (get braces one)
-         second-brace (get braces two)]
-     (if (and (= first-brace :open) (= second-brace :close))
-       (if (= (get pairs one) two)
-         (let [index (- (count full) (count rest) 2)
-               newFull (remove-idx index (remove-idx index full))]
-           (apply resolve-points newFull newFull))
-         (get points two)
+  ([row] (resolve-points row row))
+  ([full other]
+   (if (empty? other)
+     0
+     (let [one (first other)
+           two (second other)
+           first-brace (get braces one)
+           second-brace (get braces two)]
+       (if (is-brace-pair? first-brace second-brace)
+         (if (brace-match? one two)
+           (let [index (- (count full) (count other))
+                 newFull (remove-idx index (remove-idx index full))]
+             (recur newFull newFull)
+             )
+           (get points two)
+           )
+         (recur full (rest other))
          )
-       (apply resolve-points full two rest)
-       )
-     )
-   )
-  ([full one two]
-   (let [first-brace (get braces one)
-         second-brace (get braces two)]
-     (if (and (= first-brace :open) (= second-brace :close) (not= (get pairs one) two))
-       (get points two)
-       0
        )
      )
    )
