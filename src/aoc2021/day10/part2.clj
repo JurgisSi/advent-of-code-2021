@@ -1,74 +1,71 @@
-(ns aoc2021.day9.part2
-  (:require [clojure.string :as str]
-            clojure.set)
+(ns aoc2021.day10.part2
+  (:require [clojure.string :as str])
   )
 
 (def input-path "input.txt")
 
-(defn split [row]
-  (map #(Integer/parseInt %) (str/split row #""))
+(def braces (hash-map "(" :open, "[" :open, "{" :open, "<" :open, ")" :close, "]" :close, "}" :close, ">" :close))
+(def pairs (hash-map "(" ")", "[" "]", "{" "}", "<" ">"))
+(def points (hash-map "(" 1 "[" 2 "{" 3 "<" 4))
+
+(defn parse-input [path]
+  (map #(str/split % #"") (str/split-lines (slurp path)))
   )
 
-(defn create-input [path]
-  (map #(split %) (str/split-lines (slurp path)))
+(defn remove-idx [i items]
+  (keep-indexed #(when-not (= i %1) %2) items))
+
+(defn is-brace-pair? [first-brace second-brace]
+  (and (= first-brace :open) (= second-brace :close))
   )
 
-(defn fetch-point-or-max [x y input]
-  (if (and (>= x 0) (>= y 0) (< y (count input)) (< x (count (nth input y))))
-    (nth (nth input y) x)
-    9)
-  )
+(defn brace-match? [one two]
+  (= (get pairs one) two))
 
-(defn create-coordinates [input]
-  (for [y (range (count input))
-        x (range (count (nth input y)))]
-    (hash-map :x x :y y)
-    )
-  )
-
-(defn find-basin
-  ([input x y] (find-basin input x y #{}))
-  ([input x y basins]
-   (let [point (fetch-point-or-max x y input)
-         xy (str x y)]
-     (if (or (= 9 point) (contains? basins xy))
-       basins
-       (let [up (find-basin input x (dec y) (conj basins xy))
-             right (find-basin input (inc x) y (clojure.set/union basins up))
-             down (find-basin input x (inc y) (clojure.set/union basins right))
-             left (find-basin input (dec x) y (clojure.set/union basins down))]
-         left)
+(defn simplify
+  ([row] (simplify row row))
+  ([full other]
+   (if (empty? other)
+     full
+     (let [one (first other)
+           two (second other)
+           first-brace (get braces one)
+           second-brace (get braces two)]
+       (if (is-brace-pair? first-brace second-brace)
+         (if (brace-match? one two)
+           (let [index (- (count full) (count other))
+                 newFull (remove-idx index (remove-idx index full))]
+             (recur newFull newFull)
+             )
+           full
+           )
+         (recur full (rest other))
+         )
        )
      )
    )
   )
 
-(defn find-basins
-  ([input] (apply find-basins input '() #{} (create-coordinates input)))
-  ([input basins visited coordinate]
-   (let [x (get coordinate :x)
-         y (get coordinate :y)
-         xy (str x y)
-         point (fetch-point-or-max x y input)]
-     (if (or (= 9 point) (contains? visited xy))
-       basins
-       (conj basins 1)
-       )))
-  ([input basins visited coordinate & coordinates]
-   (println "coord:" coordinate)
-   (println "coordinates:" (count coordinates))
-   (let [x (get coordinate :x)
-         y (get coordinate :y)
-         xy (str x y)
-         point (fetch-point-or-max x y input)]
-     (if (or (= 9 point) (contains? visited xy))
-       (apply find-basins input basins (conj visited xy) coordinates)
-       (let [basin (find-basin input x y)]
-         (println "basin:" basin)
-         (apply find-basins input (conj basins (count basin)) (clojure.set/union visited basin) coordinates))
-       )
+(defn is-valid? [row]
+  (not (or (contains? (set row) ")") (contains? (set row) "]") (contains? (set row) "}") (contains? (set row) ">")))
+  )
+
+(defn convert [braces]
+  (map #(get points %) (reverse braces))
+  )
+
+(defn calculate-score
+  ([weights] (calculate-score 0 weights))
+  ([score weights]
+   (if (empty? weights)
+     score
+     (calculate-score (+ (* score 5) (first weights)) (rest weights))
      )
    )
   )
 
-(println (apply * (take-last 3 (sort (find-basins (create-input input-path))))))
+(defn find-winner [results]
+  (nth (sort results) (/ (count results) 2))
+  )
+
+(println (find-winner (map #(calculate-score %) (map #(convert %) (filter #(is-valid? %) (map #(simplify %) (parse-input input-path)))))))
